@@ -1,41 +1,21 @@
-all: fw.bin
+all: playground.z64
 .PHONY: all
 
 BUILD_DIR = build
 SOURCE_DIR = src
-TOOLS_DIR = tools
 include $(N64_INST)/include/n64.mk
 
 OBJS = $(BUILD_DIR)/main.o
 
-N64_CFLAGS += -std=gnu23
+N64_CFLAGS += -std=gnu23 -Os -G0
 
-shark.z64: N64_ROM_TITLE = "SharkWire Firmware"
+playground.z64: N64_ROM_TITLE = "Libdragon playground"
 
-$(BUILD_DIR)/shark.elf: $(OBJS)
-
-DD := dd
-
-include $(TOOLS_DIR)/Makefile
-
-fw.bin.tmp: shark.z64
-	$(DD) if=$< of=$@ bs=256K conv=sync status=none
-
-fw.bin: fw.bin.tmp $(GSCRC)
-	$(TOOLS_DIR)/$(GSCRC) $< $@ 7101::80201000
-
-# Setup repo
-setup:
-	$(MAKE) -C $(TOOLS_DIR) tools_setup
+$(BUILD_DIR)/playground.elf: $(OBJS)
 
 # Clean code
 clean:
-	rm -rf $(BUILD_DIR) *.z64 *.bin *.tmp
+	rm -rf $(BUILD_DIR) *.z64
 .PHONY: clean
-
-# Clean tools
-distclean: clean
-	$(MAKE) -C $(TOOLS_DIR) tools_clean
-.PHONY: distclean
 
 -include $(wildcard $(BUILD_DIR)/*.d)
