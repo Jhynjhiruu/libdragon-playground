@@ -1,90 +1,71 @@
-#include <../../src/joypad_accessory.h>
 #include <libdragon.h>
 
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
+static uint64_t *addr = (uint64_t *)0xA0200000;
+
+#define REPEAT_BYTES (8 * 3 - 4)
+#define TEST_VALUE 0x1122334455667788
+
+uint32_t left_before, left_during, left_after;
+uint32_t right_before, right_during, right_after;
+
+static void writeRepeatSDL(void *addr, uint64_t testVal) {
+    uint32_t miVal = MI_WMODE_SET_REPEAT | (REPEAT_BYTES - 1);
+    left_before = *MI_MODE;
+    asm volatile("sw %1, 0(%0)\n" ::"r"(MI_MODE), "r"(miVal));
+    left_during = *MI_MODE;
+    asm volatile("sdl %0, 0(%1)\n" ::"r"(testVal), "r"(addr));
+    left_after = *MI_MODE;
+}
+
+static void writeRepeatSDR(void *addr, uint64_t testVal) {
+    uint32_t miVal = MI_WMODE_SET_REPEAT | (REPEAT_BYTES - 1);
+    right_before = *MI_MODE;
+    asm volatile("sw %1, 0(%0)\n" ::"r"(MI_MODE), "r"(miVal));
+    right_during = *MI_MODE;
+    asm volatile("sdr %0, 0(%1)\n" ::"r"(testVal), "r"(addr));
+    right_after = *MI_MODE;
+}
+
+void printMem(int values) {
+    for (int i = 0; i < values; ++i) {
+        printf("%016llX ", addr[i]);
+    }
+    printf("\n");
+    memset(addr, 0xEE, 128);
+}
 
 int main(void) {
     console_init();
     console_set_render_mode(RENDER_MANUAL);
 
-    joypad_init();
+    printMem(0);
+    printf("Before: ");
+    printMem(3);
+    printf("\nValue: %08llX | Repeat bytes: %d\n\n", TEST_VALUE, REPEAT_BYTES);
 
-    printf("Controller pak dumper\n");
     console_render();
 
-    if (!debug_init_sdfs("sd:/", -1)) {
-        printf("SD card not found\n");
-        console_render();
-        while (true) {
-            continue;
-        }
+    disable_interrupts();
+
+    for (int i = 0; i < 8; ++i) {
+        writeRepeatSDL((char *)addr + i, TEST_VALUE);
+        printf("SDL +%d: ", i);
+        printMem(3);
     }
 
-#define READ_SIZE (8 * 1024 * 1024)
-#define BANK_SIZE (32 * 1024)
-
-#define NUM_BANKS (READ_SIZE / BANK_SIZE)
-
-    char const *const path = "sd:/dump.pak";
-
-    const int f = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-    if (f == -1) {
-        printf("Failed to create %s\nErrno: %d (%s)\n", path, errno, strerror(errno));
-        console_render();
-        while (true) {
-            continue;
-        }
+    printf("\n");
+    for (int i = 0; i < 8; ++i) {
+        writeRepeatSDR((char *)addr + i, TEST_VALUE);
+        printf("SDR +%d: ", i);
+        printMem(3);
     }
 
-    uint8_t buf[BANK_SIZE];
+    enable_interrupts();
 
-    for (uint bank = 0; bank < NUM_BANKS; bank++) {
-        printf("Reading bank %d\n", bank);
-        console_render();
-
-        joypad_accessory_error_t res = joypad_controller_pak_set_bank(JOYPAD_PORT_1, bank);
-
-        if (res != JOYPAD_ACCESSORY_ERROR_NONE) {
-            printf("Error setting bank %d: %d\n", bank, res);
-            console_render();
-            goto __close_file;
-        }
-
-        res = joypad_accessory_xfer(JOYPAD_PORT_1, JOYPAD_ACCESSORY_XFER_READ, 0x0000, buf, sizeof(buf));
-
-        if (res != JOYPAD_ACCESSORY_ERROR_NONE) {
-            printf("Error reading bank %d: %d\n", bank, res);
-            console_render();
-            goto __close_file;
-        }
-
-        size_t done = 0;
-        while (done < BANK_SIZE) {
-            const size_t left = BANK_SIZE - done;
-            const ssize_t res = write(f, buf + done, left);
-            if ((res == 0) || (res == -1)) {
-                printf("Failed to write %s\nErrno: %d (%s)\n", path, errno, strerror(errno));
-                console_render();
-                goto __close_file;
-            }
-
-            done += (size_t)res;
-        }
-    }
-
-__close_file:
-    if (close(f) == -1) {
-        printf("Failed to close %s\nErrno: %d (%s)\n", path, errno, strerror(errno));
-        console_render();
-    }
-
-    printf("Done!\n");
+    printf("initial MI_MODE: %08lX %08lX\n", left_before, right_before);
+    printf("during  MI_MODE: %08lX %08lX\n", left_during, right_during);
+    printf("after   MI_MODE: %08lX %08lX\n", left_after, right_after);
     console_render();
 
-    while (true) {
-        ;
-    }
+    console_render();
 }
