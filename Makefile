@@ -5,7 +5,7 @@ BUILD_DIR = build
 SOURCE_DIR = src
 include $(N64_INST)/include/n64.mk
 
-OBJS = $(BUILD_DIR)/main.o
+OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/pif.o
 
 N64_CFLAGS += -std=gnu23 -Os -G0
 
