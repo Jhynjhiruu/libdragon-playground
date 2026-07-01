@@ -1,6 +1,8 @@
 /build
 /.vscode
 
+.clangd
+
 *.z64
 *.bin
 *.tmp
