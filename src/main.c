@@ -65,24 +65,13 @@ int main(void) {
             break;
         }
     }
-    *osTvType = 1;
+    *osTvType = 0;
     *osRomType = 0;
     *osRomBase = 0xB0000000;
-    *osResetType = 1;
+    *osResetType = 0;
     *osCicId = 0;
     *osVersion = 15;
     *osMemSize = 0x800000;
-
-    set_nmi_flag(1);
-    set_nmi_flag(2);
-    set_nmi_flag(4);
-    set_nmi_flag(8);
-    set_nmi_flag(16);
-    set_nmi_flag(32);
-    set_nmi_flag(64);
-    set_nmi_flag(128);
-    set_nmi_flag(256);
-    set_nmi_flag(512);
 
     disable_interrupts();
 
@@ -93,12 +82,11 @@ int main(void) {
 
     MEMORY_BARRIER();
 
-    dma_read((void *)0x80025C00, 0x10001000, 0x100000);
+    const uint32_t entrypoint = io_read(0x10000008) - 0;
+
+    dma_read((void *)entrypoint, 0x10001000, 0x100000);
     MEMORY_BARRIER();
 
-    asm __volatile__ (
-        "li $t3, 0x80025C00\n"
-        "jr $t3\n"
-        "nop\n"
-    );
+    __attribute__((noreturn)) void (*entry)(void) = (void*)entrypoint;
+    entry();
 }
