@@ -7,7 +7,7 @@ include $(N64_INST)/include/n64.mk
 
 OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/pif.o
 
-N64_CFLAGS += -std=gnu23 -Os -G0
+N64_CFLAGS += -std=gnu23 -G0 -g
 
 playground.z64: N64_ROM_TITLE = "Libdragon playground"
 
